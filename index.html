@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width,
+height=device-height,
+initial-scale=1,
+maximum-scale=1,
+user-scalable=no,
+viewport-fit=cover">
+
+<title>VR Remote Keyboard</title>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<style>
+
+/* =========================
+   PAGE
+========================= */
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    width: 100vw;
+    height: 100dvh;
+}
+
+.app {
+    width: 100vw;
+    height: 100dvh;
+    padding: 3px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #000;
+}
+
+
+/* =========================
+   HEADER
+========================= */
+
+.header {
+    height: 8%;
+    min-height: 25px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 6px;
+
+    flex-shrink: 0;
+
+    background: #050505;
+}
+
+.header h2 {
+    margin: 0;
+
+    color: #00aaff;
+
+    font-size: clamp(10px, 2vw, 17px);
+
+    text-shadow:
+        0 0 5px #0088ff,
+        0 0 12px #0066ff;
+}
+
+#status {
+    padding: 3px 9px;
+
+    border-radius: 20px;
+
+    background: #5c1818;
+
+    color: white;
+
+    font-size: clamp(7px, 1.3vw, 11px);
+}
+
+#status.connected {
+    background: #063d24;
+
+    border: 1px solid #00ff88;
+
+    box-shadow:
+        0 0 8px #00ff88;
+}
+
+
+/* =========================
+   KEYBOARD AREA
+========================= */
+
+.keyboard-wrapper {
+    width: 100%;
+    height: 92%;
+
+    padding: 0;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   VR LOGO BACKGROUND
+========================= */
+
+.keyboard {
+    position: relative;
+
+    width: 100%;
+    height: 100%;
+
+    min-width: 0;
+
+    padding: 4px;
+
+    display: flex;
+    flex-direction: column;
+
+    background-image:
+        linear-gradient(
+            rgba(0, 0, 0, 0.25),
+            rgba(0, 0, 0, 0.25)
+        ),
+        url("/static/vr-logo.png");
+
+    background-size: contain;
+
+    background-position: center;
+
+    background-repeat: no-repeat;
+
+    background-color: #000;
+
+    overflow: hidden;
+}
+
+
+/* =========================
+   KEYBOARD ROWS
+========================= */
+
+.row {
+    position: relative;
+
+    z-index: 2;
+
+    width: 100%;
+
+    flex: 1;
+
+    display: flex;
+
+    gap: 3px;
+
+    margin-bottom: 3px;
+
+    min-height: 0;
+}
+
+.row:last-child {
+    margin-bottom: 0;
+}
+
+
+/* =========================
+   NORMAL KEYS
+========================= */
+
+.key {
+    flex: 1;
+
+    width: 0;
+
+    min-width: 0;
+
+    height: 100%;
+
+    padding: 0 1px;
+
+    border:
+
+        1px solid
+        rgba(150, 160, 180, 0.55);
+
+    border-radius: 5px;
+
+    background:
+
+        linear-gradient(
+            180deg,
+            rgba(35, 38, 45, 0.78),
+            rgba(8, 10, 14, 0.82)
+        );
+
+    color: #ffffff;
+
+    font-size:
+
+        clamp(
+            7px,
+            1.4vw,
+            13px
+        );
+
+    font-weight: bold;
+
+    user-select: none;
+
+    touch-action: manipulation;
+
+    box-shadow:
+
+        inset 0 1px 1px
+        rgba(255,255,255,0.12),
+
+        0 2px 3px
+        rgba(0,0,0,0.8);
+}
+
+
+/* =========================
+   KEY PRESS
+========================= */
+
+.key:active,
+.key.pressed {
+
+    transform:
+        scale(0.94);
+
+    background:
+
+        linear-gradient(
+            180deg,
+            rgba(0, 130, 255, 0.90),
+            rgba(0, 60, 180, 0.90)
+        );
+
+    border-color:
+        #00aaff;
+
+    box-shadow:
+
+        0 0 8px
+        #0088ff;
+}
+
+
+/* =========================
+   ACTIVE CTRL / ALT / SHIFT
+========================= */
+
+.key.active {
+
+    background:
+
+        linear-gradient(
+            180deg,
+            #0088ff,
+            #003d99
+        );
+
+    border-color:
+        #00ccff;
+
+    box-shadow:
+
+        0 0 10px
+        #0088ff;
+}
+
+
+/* =========================
+   SPECIAL KEY WIDTHS
+========================= */
+
+.wide {
+    flex: 1.5;
+}
+
+.enter {
+    flex: 1.7;
+}
+
+.modifier {
+    flex: 1.4;
+}
+
+.space {
+    flex: 5;
+}
+
+
+/* =========================
+   PORTRAIT MESSAGE
+========================= */
+
+.rotate-message {
+    display: none;
+}
+
+@media (orientation: portrait) {
+
+    .header,
+    .keyboard-wrapper {
+
+        display: none;
+
+    }
+
+    .rotate-message {
+
+        width: 100%;
+
+        height: 100%;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        color: #00aaff;
+
+        font-size: 20px;
+
+        text-align: center;
+
+        background: #000;
+
+    }
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div class="app">
+
+
+<!-- ROTATE MESSAGE -->
+
+<div class="rotate-message">
+
+    📱 Rotate your phone to landscape
+
+</div>
+
+
+<!-- HEADER -->
+
+<div class="header">
+
+    <h2>VR KEYBOARD</h2>
+
+    <div id="status">
+
+        CONNECTING...
+
+    </div>
+
+</div>
+
+
+<!-- KEYBOARD -->
+
+<div class="keyboard-wrapper">
+
+<div class="keyboard">
+
+
+<!-- =========================
+     FUNCTION ROW
+========================= -->
+
+<div class="row">
+
+<button class="key" data-key="ESC">
+Esc
+</button>
+
+<button class="key" data-key="F1">
+F1
+</button>
+
+<button class="key" data-key="F2">
+F2
+</button>
+
+<button class="key" data-key="F3">
+F3
+</button>
+
+<button class="key" data-key="F4">
+F4
+</button>
+
+<button class="key" data-key="F5">
+F5
+</button>
+
+<button class="key" data-key="F6">
+F6
+</button>
+
+<button class="key" data-key="F7">
+F7
+</button>
+
+<button class="key" data-key="F8">
+F8
+</button>
+
+<button class="key" data-key="F9">
+F9
+</button>
+
+<button class="key" data-key="F10">
+F10
+</button>
+
+<button class="key" data-key="F11">
+F11
+</button>
+
+<button class="key" data-key="F12">
+F12
+</button>
+
+</div>
+
+
+<!-- =========================
+     NUMBER ROW
+========================= -->
+
+<div class="row">
+
+<button class="key" data-key="`">
+`
+</button>
+
+<button class="key" data-key="1">1</button>
+
+<button class="key" data-key="2">2</button>
+
+<button class="key" data-key="3">3</button>
+
+<button class="key" data-key="4">4</button>
+
+<button class="key" data-key="5">5</button>
+
+<button class="key" data-key="6">6</button>
+
+<button class="key" data-key="7">7</button>
+
+<button class="key" data-key="8">8</button>
+
+<button class="key" data-key="9">9</button>
+
+<button class="key" data-key="0">0</button>
+
+<button class="key" data-key="-">-</button>
+
+<button class="key" data-key="=">=</button>
+
+<button
+class="key wide"
+data-key="BACKSPACE">
+
+⌫ Backspace
+
+</button>
+
+</div>
+
+
+<!-- =========================
+     QWERTY ROW
+========================= -->
+
+<div class="row">
+
+<button
+class="key wide"
+data-key="TAB">
+
+Tab
+
+</button>
+
+<button class="key" data-key="q">Q</button>
+
+<button class="key" data-key="w">W</button>
+
+<button class="key" data-key="e">E</button>
+
+<button class="key" data-key="r">R</button>
+
+<button class="key" data-key="t">T</button>
+
+<button class="key" data-key="y">Y</button>
+
+<button class="key" data-key="u">U</button>
+
+<button class="key" data-key="i">I</button>
+
+<button class="key" data-key="o">O</button>
+
+<button class="key" data-key="p">P</button>
+
+<button class="key" data-key="[">[</button>
+
+<button class="key" data-key="]">]</button>
+
+<button class="key" data-key="\">\</button>
+
+</div>
+
+
+<!-- =========================
+     ASDF ROW
+========================= -->
+
+<div class="row">
+
+<button
+class="key wide"
+data-key="CAPS">
+
+Caps
+
+</button>
+
+<button class="key" data-key="a">A</button>
+
+<button class="key" data-key="s">S</button>
+
+<button class="key" data-key="d">D</button>
+
+<button class="key" data-key="f">F</button>
+
+<button class="key" data-key="g">G</button>
+
+<button class="key" data-key="h">H</button>
+
+<button class="key" data-key="j">J</button>
+
+<button class="key" data-key="k">K</button>
+
+<button class="key" data-key="l">L</button>
+
+<button class="key" data-key=";">;</button>
+
+<button class="key" data-key="'">'</button>
+
+<button
+class="key enter"
+data-key="ENTER">
+
+Enter
+
+</button>
+
+</div>
+
+
+<!-- =========================
+     ZXCV ROW
+========================= -->
+
+<div class="row">
+
+<button
+class="key modifier"
+data-mod="shift">
+
+Shift
+
+</button>
+
+<button class="key" data-key="z">Z</button>
+
+<button class="key" data-key="x">X</button>
+
+<button class="key" data-key="c">C</button>
+
+<button class="key" data-key="v">V</button>
+
+<button class="key" data-key="b">B</button>
+
+<button class="key" data-key="n">N</button>
+
+<button class="key" data-key="m">M</button>
+
+<button class="key" data-key=",">,</button>
+
+<button class="key" data-key=".">.</button>
+
+<button class="key" data-key="/">/</button>
+
+<button class="key" data-key="UP">
+
+↑
+
+</button>
+
+</div>
+
+
+<!-- =========================
+     BOTTOM ROW
+========================= -->
+
+<div class="row">
+
+<button
+class="key modifier"
+data-mod="ctrl">
+
+Ctrl
+
+</button>
+
+<button
+class="key modifier"
+data-mod="win">
+
+⊞
+
+</button>
+
+<button
+class="key modifier"
+data-mod="alt">
+
+Alt
+
+</button>
+
+<button
+class="key space"
+data-key="SPACE">
+
+SPACE
+
+</button>
+
+<button class="key" data-key="LEFT">
+
+←
+
+</button>
+
+<button class="key" data-key="DOWN">
+
+↓
+
+</button>
+
+<button class="key" data-key="RIGHT">
+
+→
+
+</button>
+
+<button class="key" data-key="DELETE">
+
+Del
+
+</button>
+
+</div>
+
+
+</div>
+</div>
+
+</div>
+
+
+<script>
+
+/* =========================
+   SOCKET CONNECTION
+========================= */
+
+const socket = io();
+
+const statusBox =
+document.getElementById("status");
+
+let activeModifier = null;
+
+
+/* CONNECTED */
+
+socket.on(
+    "connect",
+    function() {
+
+        statusBox.textContent =
+        "● CONNECTED";
+
+        statusBox.className =
+        "connected";
+
+    }
+);
+
+
+/* DISCONNECTED */
+
+socket.on(
+    "disconnect",
+    function() {
+
+        statusBox.textContent =
+        "● DISCONNECTED";
+
+        statusBox.className = "";
+
+    }
+);
+
+
+/* =========================
+   CLEAR MODIFIER
+========================= */
+
+function clearModifier() {
+
+    activeModifier = null;
+
+    document
+    .querySelectorAll(
+        "[data-mod]"
+    )
+    .forEach(
+        function(button) {
+
+            button
+            .classList
+            .remove(
+                "active"
+            );
+
+        }
+    );
+}
+
+
+/* =========================
+   NORMAL KEY PRESS
+========================= */
+
+document
+.querySelectorAll(
+    "[data-key]"
+)
+.forEach(
+function(button) {
+
+    button.addEventListener(
+        "pointerdown",
+        function(event) {
+
+            event.preventDefault();
+
+
+            const key =
+            this.dataset.key;
+
+
+            /* PRESS EFFECT */
+
+            this
+            .classList
+            .add(
+                "pressed"
+            );
+
+
+            setTimeout(
+                () => {
+
+                    this
+                    .classList
+                    .remove(
+                        "pressed"
+                    );
+
+                },
+                100
+            );
+
+
+            /* MODIFIER SHORTCUT */
+
+            if (
+                activeModifier
+            ) {
+
+                socket.emit(
+                    "shortcut",
+                    {
+
+                        keys: [
+
+                            activeModifier,
+
+                            key.toLowerCase()
+
+                        ]
+
+                    }
+                );
+
+
+                clearModifier();
+
+            }
+
+
+            /* NORMAL KEY */
+
+            else {
+
+                socket.emit(
+                    "key",
+                    {
+
+                        key: key
+
+                    }
+                );
+
+            }
+
+        }
+    );
+
+});
+
+
+/* =========================
+   CTRL / SHIFT / ALT / WIN
+========================= */
+
+document
+.querySelectorAll(
+    "[data-mod]"
+)
+.forEach(
+function(button) {
+
+    button.addEventListener(
+        "pointerdown",
+        function(event) {
+
+            event.preventDefault();
+
+
+            const selected =
+            this.dataset.mod;
+
+
+            /* TURN OFF */
+
+            if (
+                activeModifier ===
+                selected
+            ) {
+
+                clearModifier();
+
+                return;
+
+            }
+
+
+            /* ACTIVATE */
+
+            clearModifier();
+
+
+            activeModifier =
+            selected;
+
+
+            this
+            .classList
+            .add(
+                "active"
+            );
+
+        }
+    );
+
+});
+
+
+/* =========================
+   STOP DOUBLE TAP ZOOM
+========================= */
+
+document.addEventListener(
+    "dblclick",
+    function(event) {
+
+        event.preventDefault();
+
+    }
+);
+
+</script>
+
+</body>
+</html>
